@@ -23,20 +23,32 @@ FUNCT6_VT = {
     "vtadd.vv":   0b000000,
     "vtsub.vv":   0b000010,
     "vtmul.vv":   0b100100,
-    "vncvt.t.t":  0b010010,     # vs1 fixo em 0
+    "vncvt.t.t":  0b010010,     # vs1 = 10100 (sub-opcode)
     "vtdot8.vv":  0b101100,
     "vtdot16.vv": 0b101101,
     "vtdot32.vv": 0b101110,
 }
 NOME_POR_FUNCT6 = {f: nome for nome, f in FUNCT6_VT.items()}
 
+# vncvt.t.t tem uma única fonte (vs2): o campo vs1 não é registrador, é um
+# sub-opcode, como na vfncvt. 10100 é o valor da vfncvt.f.f.w (float -> float).
+VS1_VNCVT = 0b10100
+
 
 class InstrucaoIlegal(Exception):
     pass
 
 
-def codificar_vt(nome: str, vd: int, vs2: int, vs1: int = 0, vm: int = 1) -> int:
-    """Monta a palavra de 32 bits de uma instrução Zvtakum."""
+def codificar_vt(nome: str, vd: int, vs2: int, vs1: int | None = None,
+                 vm: int = 1) -> int:
+    """Monta a palavra de 32 bits de uma instrução Zvtakum.
+    Para vncvt.t.t, vs1 é o sub-opcode (fixo em VS1_VNCVT)."""
+    if nome == "vncvt.t.t":
+        if vs1 not in (None, VS1_VNCVT):
+            raise ValueError("em vncvt.t.t, vs1 é o sub-opcode 10100")
+        vs1 = VS1_VNCVT
+    elif vs1 is None:
+        raise ValueError(f"{nome} precisa de vs1")
     return ((FUNCT6_VT[nome] << 26) | (vm << 25) | (vs2 << 20) |
             (vs1 << 15) | (FUNCT3_VV << 12) | (vd << 7) | OPCODE_CUSTOM1)
 
@@ -63,6 +75,8 @@ def identificar(palavra: int):
             raise InstrucaoIlegal(f"funct6 desconhecido: {c['funct6']:06b}")
         if c["vm"] != 1:
             raise InstrucaoIlegal("máscara (vm = 0) fora do escopo")
+        if nome == "vncvt.t.t" and c["vs1"] != VS1_VNCVT:
+            raise InstrucaoIlegal("sub-opcode (vs1) inválido em vncvt.t.t")
         return nome, c
 
     # TODO: instruções padrão. Devolver o nome e os campos que cada executor
