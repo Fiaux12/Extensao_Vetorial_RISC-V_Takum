@@ -2,7 +2,7 @@
 estruturas.py
 Estado da máquina simulada: registradores, memória, PC, programa e CSRs vetoriais.
 
-Nada aqui interpreta Takum: registradores e memória guardam apenas bits.
+Registradores e memória guardam apenas bits.
 """
 from dataclasses import dataclass, field
 
