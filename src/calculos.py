@@ -89,13 +89,11 @@ def takum_estreitar(a: int, n_entrada: int, n_saida: int) -> int:
 
 
 def takum_dot(acc: int, elems_a: list, elems_b: list, n: int) -> int:
-    """acc + soma(a_j * b_j), com os produtos calculados em T32 (sem reduzir
-    para n bits) e soma sequencial. n é a largura dos elementos de entrada;
-    acc e o resultado são T32."""
     for ea, eb in zip(elems_a, elems_b):
         pa = takum_alargar(ea, n, 32)
         pb = takum_alargar(eb, n, 32)
-        acc = takum_add(acc, takum_mul(pa, pb, 32), 32)
+        prod = ula(Op.MUL, pa, pb, 32)
+        acc = ula(Op.ADD, acc, prod, 32)
     return acc
 
 

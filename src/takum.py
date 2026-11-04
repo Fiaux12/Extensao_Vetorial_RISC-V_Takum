@@ -41,6 +41,10 @@ def eh_zero(bits: int, n: int) -> bool:
     return bits == 0
 
 
+def takum_para_binario(bits: int, n: int) -> str:
+    return format(bits, f"0{n}b")
+
+
 def bits_fracao_padrao(n: int) -> int:
     """Bits fracionários da representação interna: n - 5 (mínimo 0)."""
     return max(n - 5, 0)
