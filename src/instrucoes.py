@@ -4,9 +4,9 @@ Executores das instruções. Todos têm a assinatura  exec_x(m, c)  em que
 m é a Maquina e c é o dicionário de campos devolvido por identificar().
 Devolvem True se alteraram o PC (desvios); caso contrário, o PC avança +4.
 """
-from estruturas import Maquina
+from estruturas import Maquina, VLEN
 from codificacao import InstrucaoIlegal
-from calculos import ula, Op
+from calculos import ula, Op, takum_estreitar
 
 
 def _verificar_pre_condicoes(m: Maquina, sew_exigido: int | None = None) -> None:
@@ -138,7 +138,20 @@ def exec_vtdot32(m: Maquina, c: dict):
 
 
 def exec_vncvt(m: Maquina, c: dict):
-    raise NotImplementedError
+    _verificar_pre_condicoes(m)
+    if m.sew == 32:
+        raise InstrucaoIlegal("vncvt.t.t: não existe fonte de 64 bits")
+    if c["vs2"] % 2 != 0:
+        raise InstrucaoIlegal("vncvt.t.t: vs2 deve ser par (grupo de 2 registradores)")
+
+    n_dst, n_src = m.sew, 2 * m.sew
+    por_reg = VLEN // n_src                       # elementos largos por registrador
+    for i in range(m.vl):
+        reg = c["vs2"] + i // por_reg             # a fonte pode ocupar vs2 e vs2+1
+        a = m.ler_elemento(reg, i % por_reg, sew=n_src)
+        r = takum_estreitar(a, n_src, n_dst)
+        m.escrever_elemento(c["vd"], i, r)        # sew = m.sew
+    return False
 
 
 # --- Tabela de despacho: nome da instrução -> executor ----------------------

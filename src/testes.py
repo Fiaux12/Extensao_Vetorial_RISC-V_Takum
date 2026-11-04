@@ -1,7 +1,7 @@
 from takum import float_para_takum, takum_para_float, takum_para_binario
 from calculos import takum_alargar, takum_estreitar, takum_dot, takum_add, takum_sub, takum_mul
 from estruturas import Maquina, TAM_MEMORIA
-from instrucoes import exec_vtadd, exec_vtsub, exec_vtmul, exec_vsetvli, _exec_vle, _exec_vse, exec_addi, exec_bne
+from instrucoes import exec_vtadd, exec_vtsub, exec_vtmul, exec_vsetvli, _exec_vle, _exec_vse, exec_addi, exec_bne, exec_vncvt
 from codificacao import InstrucaoIlegal
 
 # ==================================================================================
@@ -209,57 +209,67 @@ print('\n')
 # ==================================================================================
 # Testes de Instruções - vsetvli, vle / vse, addi, bne, laço: addi + addi + bne
 # ==================================================================================
-
-
 # zimm = vma<<7 | vta<<6 | vsew<<3 | vlmul   (vsew: 0=8, 1=16, 2=32)
 E16_M1_TA_MA = (1 << 7) | (1 << 6) | (1 << 3) | 0      # = 200
 E32_M1       = (2 << 3)
 E64_M1       = (3 << 3)                                 # fora do escopo
 
 # ---------------- vsetvli ----------------
-m = Maquina()
-m.escrever_escalar(5, 10)                               # t0 = AVL = 10
-exec_vsetvli(m, {"rd": 6, "rs1": 5, "zimm": E16_M1_TA_MA})
-print("SEW =", m.sew, "| vlmax =", m.vlmax(), "| vl =", m.vl, "| x6 =", m.ler_escalar(6))
+m4 = Maquina()
+m4.escrever_escalar(5, 10)                               # t0 = AVL = 10
+exec_vsetvli(m4, {"rd": 6, "rs1": 5, "zimm": E16_M1_TA_MA})
+print("SEW =", m4.sew, "| vlmax =", m4.vlmax(), "| vl =", m4.vl, "| x6 =", m4.ler_escalar(6))
 print('\n')
 
 # ---------------- vle / vse ----------------
 
 # ---------------- addi ----------------
-m = Maquina()
-m.escrever_escalar(5, 10)
-exec_addi(m, {"rd": 6, "rs1": 5, "imm": -3})
-print("addi x6 = x5 - 3 =", m.ler_escalar(6))           # 7
+m5 = Maquina()
+m5.escrever_escalar(5, 10)
+exec_addi(m5, {"rd": 6, "rs1": 5, "imm": -3})
+print("addi x6 = x5 - 3 =", m5.ler_escalar(6))           # 7
 
 # ---------------- bne ----------------
-m = Maquina()
-m.pc = 8
-m.escrever_escalar(1, 1)
-m.escrever_escalar(2, 2)
-r = exec_bne(m, {"rs1": 1, "rs2": 2, "imm": -8})
-print("diferentes: desviou =", r, "| pc =", m.pc)       # True | 0
+m6 = Maquina()
+m6.pc = 8
+m6.escrever_escalar(1, 1)
+m6.escrever_escalar(2, 2)
+r = exec_bne(m6, {"rs1": 1, "rs2": 2, "imm": -8})
+print("diferentes: desviou =", r, "| pc =", m6.pc)       # True | 0
 print('\n')
 
-m.pc = 8
-m.escrever_escalar(2, 1)
-r = exec_bne(m, {"rs1": 1, "rs2": 2, "imm": -8})
-print("iguais: desviou =", r, "| pc =", m.pc)           # False | 8
+m6.pc = 8
+m6.escrever_escalar(2, 1)
+r = exec_bne(m6, {"rs1": 1, "rs2": 2, "imm": -8})
+print("iguais: desviou =", r, "| pc =", m6.pc)           # False | 8
 print('\n')
 
 # ---------------- laço: addi + addi + bne ----------------
-m = Maquina()
-m.escrever_escalar(7, 3)                                # contador = 3
+m7 = Maquina()
+m7.escrever_escalar(7, 3)                                # contador = 3
 prog = [
     (exec_addi, {"rd": 6, "rs1": 6, "imm": 1}),         # 0: x6 += 1
     (exec_addi, {"rd": 7, "rs1": 7, "imm": -1}),        # 4: x7 -= 1
     (exec_bne,  {"rs1": 7, "rs2": 0, "imm": -8}),       # 8: se x7 != 0, volta ao pc=0
 ]
-print("x7 =", m.ler_escalar(7))  
+print("x7 =", m7.ler_escalar(7))  
 
 
-m.carregar_programa([0] * len(prog))                    # só para o PC saber o tamanho
-while not m.fim_do_programa():
-    f, c = prog[m.pc // 4]
-    if not f(m, c):
-        m.pc += 4
-print("laço: x6 =", m.ler_escalar(6), "| x7 =", m.ler_escalar(7))   # 3 | 0
+m7.carregar_programa([0] * len(prog))                    # só para o PC saber o tamanho
+while not m7.fim_do_programa():
+    f, c = prog[m7.pc // 4]
+    if not f(m7, c):
+        m7.pc += 4
+print("laço: x6 =", m7.ler_escalar(6), "| x7 =", m7.ler_escalar(7))   # 3 | 0
+
+# ==================================================================================
+# Testes de Instruções - vncvt
+# ==================================================================================
+
+m8 = Maquina()
+m8.vill, m8.sew, m8.vl = False, 16, 4                    # destino T16, 4 lanes
+for i, v in enumerate([3.14159, -2.5, 100.0, 0.001]):
+    m8.escrever_elemento(2, i, float_para_takum(v, 32), sew=32)   # fonte T32 em v2
+exec_vncvt(m8, {"vd": 4, "vs2": 2, "vs1": 0b10100})
+print([takum_para_float(m8.ler_elemento(4, i, 16), 16) for i in range(4)])
+# ~[3.14, -2.5, 100.0, 0.001], com o arredondamento do T16
