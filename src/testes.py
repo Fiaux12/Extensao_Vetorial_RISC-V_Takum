@@ -1,9 +1,13 @@
 from takum import float_para_takum, takum_para_float, takum_para_binario
 from calculos import takum_alargar, takum_estreitar, takum_dot, takum_add, takum_sub, takum_mul
 from estruturas import Maquina, TAM_MEMORIA
-from instrucoes import exec_vtadd, exec_vtsub, exec_vtmul
+from instrucoes import exec_vtadd, exec_vtsub, exec_vtmul, exec_vsetvli, _exec_vle, _exec_vse, exec_addi, exec_bne
+from codificacao import InstrucaoIlegal
 
-# ------------------------------ Testes de Calculo ------------------------------
+# ==================================================================================
+# Testes de Calculo
+# ==================================================================================
+
 # --- add ---
 n = 16
 a = float_para_takum(1.5, n)
@@ -64,8 +68,9 @@ acc = float_para_takum(1.0, 32) #10.0
 r = takum_dot(acc, A, B, n)
 print("dot:", takum_para_binario(r, 32), takum_para_float(r, 32))
 
-
-# ------------------------------ Testes de Estrutura - Banco de registradores ------------------------------
+# ==================================================================================
+# Testes de Estrutura - Banco de registradores
+# ==================================================================================
 m1 = Maquina()
 
 # --- Registradores escalares ---
@@ -103,8 +108,9 @@ try:
 except IndexError as e:
     print("erro esperado:", e)
 
-
-# ------------------------------ Testes de Estrutura - Memoria e PC ------------------------------
+# ==================================================================================
+# Testes de Estrutura - Memoria e PC
+# ==================================================================================
 
 m2 = Maquina()
 
@@ -164,8 +170,9 @@ for pc_ruim in (2, 16, -4):                                     # desalinhado, a
     except IndexError as e:
         print("erro esperado:", e)
 
-
-# ------------------------------ Testes de Instruções ------------------------------
+# ==================================================================================
+# Testes de Instruções - add, sub, mul
+# ==================================================================================
 
 m3 = Maquina()
 m3.vill, m3.sew, m3.vl = False, 16, 3
@@ -198,3 +205,61 @@ exec_vtmul(m3, {"vd": 3, "vs2": 2, "vs1": 1})
 print([takum_para_float(m3.ler_elemento(3, i), 16) for i in range(4)])
 # [3.37, 2, -2, 0.0] 
 print('\n')
+
+# ==================================================================================
+# Testes de Instruções - vsetvli, vle / vse, addi, bne, laço: addi + addi + bne
+# ==================================================================================
+
+
+# zimm = vma<<7 | vta<<6 | vsew<<3 | vlmul   (vsew: 0=8, 1=16, 2=32)
+E16_M1_TA_MA = (1 << 7) | (1 << 6) | (1 << 3) | 0      # = 200
+E32_M1       = (2 << 3)
+E64_M1       = (3 << 3)                                 # fora do escopo
+
+# ---------------- vsetvli ----------------
+m = Maquina()
+m.escrever_escalar(5, 10)                               # t0 = AVL = 10
+exec_vsetvli(m, {"rd": 6, "rs1": 5, "zimm": E16_M1_TA_MA})
+print("SEW =", m.sew, "| vlmax =", m.vlmax(), "| vl =", m.vl, "| x6 =", m.ler_escalar(6))
+print('\n')
+
+# ---------------- vle / vse ----------------
+
+# ---------------- addi ----------------
+m = Maquina()
+m.escrever_escalar(5, 10)
+exec_addi(m, {"rd": 6, "rs1": 5, "imm": -3})
+print("addi x6 = x5 - 3 =", m.ler_escalar(6))           # 7
+
+# ---------------- bne ----------------
+m = Maquina()
+m.pc = 8
+m.escrever_escalar(1, 1)
+m.escrever_escalar(2, 2)
+r = exec_bne(m, {"rs1": 1, "rs2": 2, "imm": -8})
+print("diferentes: desviou =", r, "| pc =", m.pc)       # True | 0
+print('\n')
+
+m.pc = 8
+m.escrever_escalar(2, 1)
+r = exec_bne(m, {"rs1": 1, "rs2": 2, "imm": -8})
+print("iguais: desviou =", r, "| pc =", m.pc)           # False | 8
+print('\n')
+
+# ---------------- laço: addi + addi + bne ----------------
+m = Maquina()
+m.escrever_escalar(7, 3)                                # contador = 3
+prog = [
+    (exec_addi, {"rd": 6, "rs1": 6, "imm": 1}),         # 0: x6 += 1
+    (exec_addi, {"rd": 7, "rs1": 7, "imm": -1}),        # 4: x7 -= 1
+    (exec_bne,  {"rs1": 7, "rs2": 0, "imm": -8}),       # 8: se x7 != 0, volta ao pc=0
+]
+print("x7 =", m.ler_escalar(7))  
+
+
+m.carregar_programa([0] * len(prog))                    # só para o PC saber o tamanho
+while not m.fim_do_programa():
+    f, c = prog[m.pc // 4]
+    if not f(m, c):
+        m.pc += 4
+print("laço: x6 =", m.ler_escalar(6), "| x7 =", m.ler_escalar(7))   # 3 | 0

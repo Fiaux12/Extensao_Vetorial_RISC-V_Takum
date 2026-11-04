@@ -22,26 +22,70 @@ def _verificar_pre_condicoes(m: Maquina, sew_exigido: int | None = None) -> None
 # --- Instruções padrão do RISC-V / RVV --------------------------------------
 def exec_vsetvli(m: Maquina, c: dict):
     """vl = min(AVL, VLMAX); grava sew, lmul, vta, vma e vill; rd recebe vl."""
-    raise NotImplementedError
+    zimm = c["zimm"]
+    vlmul = zimm & 0b111
+    vsew = (zimm >> 3) & 0b111              # 000 = 8, 001 = 16, 010 = 32
+    vta = bool((zimm >> 6) & 1)
+    vma = bool((zimm >> 7) & 1)
+
+    if vlmul != 0 or vsew > 2:              # projeto: LMUL = 1 e SEW em {8, 16, 32}
+        m.vill = True
+        m.vl = 0
+        m.escrever_escalar(c["rd"], 0)
+        return False
+
+    m.sew = 8 << vsew
+    m.lmul = 1
+    m.vta, m.vma = vta, vma
+    m.vill = False
+
+    if c["rs1"] != 0:                       # AVL vem do registrador rs1
+        m.vl = min(m.ler_escalar(c["rs1"]), m.vlmax())
+    elif c["rd"] != 0:                      # rs1 = x0 e rd != x0: AVL = infinito
+        m.vl = m.vlmax()
+    # rs1 = rd = x0: mantém o vl atual (só muda o vtype)
+
+    m.escrever_escalar(c["rd"], m.vl)       # rd = x0 ignora a escrita
+    return False
 
 
 def _exec_vle(m: Maquina, c: dict, eew: int):
     """Carrega vl elementos de eew bits (little-endian) da memória em vd."""
-    raise NotImplementedError
+    _verificar_pre_condicoes(m, sew_exigido=eew)
+    n = eew // 8
+    base = m.ler_escalar(c["rs1"])
+    dados = m.ler_memoria(base, m.vl * n)
+    for i in range(m.vl):
+        valor = int.from_bytes(dados[i * n:(i + 1) * n], "little")
+        m.escrever_elemento(c["vd"], i, valor, sew=eew)
+    return False
 
 
 def _exec_vse(m: Maquina, c: dict, eew: int):
     """Grava vl elementos de eew bits de vs3 na memória."""
-    raise NotImplementedError
+    # eew = largura efetiva do elemento, aqui eew = sew
+
+    _verificar_pre_condicoes(m, sew_exigido=eew)
+    n = eew // 8                                # divide por 8 e descarta a parte decimal, quantos bytes cada elemento ocupa
+    base = m.ler_escalar(c["rs1"])
+    dados = bytearray()
+    for i in range(m.vl):
+        dados += m.ler_elemento(c["vs3"], i, sew=eew).to_bytes(n, "little")
+    m.escrever_memoria(base, bytes(dados))
+    return False
 
 
 def exec_addi(m: Maquina, c: dict):
-    raise NotImplementedError
+    m.escrever_escalar(c["rd"], m.ler_escalar(c["rs1"]) + c["imm"])
+    return False
 
 
 def exec_bne(m: Maquina, c: dict):
     """Se rs1 != rs2, m.pc += imediato e devolve True."""
-    raise NotImplementedError
+    if m.ler_escalar(c["rs1"]) != m.ler_escalar(c["rs2"]):
+        m.pc += c["imm"]
+        return True
+    return False
 
 
 # --- Instruções Zvtakum (proposta) -------------------------------------------
