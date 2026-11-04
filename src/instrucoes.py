@@ -5,12 +5,18 @@ m é a Maquina e c é o dicionário de campos devolvido por identificar().
 Devolvem True se alteraram o PC (desvios); caso contrário, o PC avança +4.
 """
 from estruturas import Maquina
-import calculos
+from codificacao import InstrucaoIlegal
+from calculos import ula, Op
 
 
 def _verificar_pre_condicoes(m: Maquina, sew_exigido: int | None = None) -> None:
     """Levanta InstrucaoIlegal se vill = 1 ou se o SEW não for permitido."""
-    raise NotImplementedError
+    if m.vill:
+        raise InstrucaoIlegal("vill = 1: execute vsetvli antes")
+    if m.sew not in (8, 16, 32):
+        raise InstrucaoIlegal(f"SEW inválido para Takum: {m.sew}")
+    if sew_exigido is not None and m.sew != sew_exigido:
+        raise InstrucaoIlegal(f"esta instrução exige SEW = {sew_exigido}")
 
 
 # --- Instruções padrão do RISC-V / RVV --------------------------------------
@@ -40,18 +46,33 @@ def exec_bne(m: Maquina, c: dict):
 
 # --- Instruções Zvtakum (proposta) -------------------------------------------
 def exec_vtadd(m: Maquina, c: dict):
-    """para i < vl: vd[i] = ula(ADD, vs2[i], vs1[i], SEW)"""
-    raise NotImplementedError
+    """vd[i] = ula(ADD, vs2[i], vs1[i], SEW)"""
+    _verificar_pre_condicoes(m)
+    for i in range(m.vl):                     
+        a = m.ler_elemento(c["vs2"], i)        
+        b = m.ler_elemento(c["vs1"], i)
+        r = ula(Op.ADD, a, b, m.sew)               
+        m.escrever_elemento(c["vd"], i, r)     
 
 
 def exec_vtsub(m: Maquina, c: dict):
-    """para i < vl: vd[i] = ula(SUB, vs2[i], vs1[i], SEW)"""
-    raise NotImplementedError
+    """vd[i] = ula(SUB, vs2[i], vs1[i], SEW)"""
+    _verificar_pre_condicoes(m)
+    for i in range(m.vl):                     
+        a = m.ler_elemento(c["vs2"], i)        
+        b = m.ler_elemento(c["vs1"], i)
+        r = ula(Op.SUB, a, b, m.sew)               
+        m.escrever_elemento(c["vd"], i, r)     
 
 
 def exec_vtmul(m: Maquina, c: dict):
-    """para i < vl: vd[i] = ula(MUL, vs2[i], vs1[i], SEW)"""
-    raise NotImplementedError
+    """vd[i] = ula(MUL, vs2[i], vs1[i], SEW)"""
+    _verificar_pre_condicoes(m)
+    for i in range(m.vl):                     
+        a = m.ler_elemento(c["vs2"], i)        
+        b = m.ler_elemento(c["vs1"], i)
+        r = ula(Op.MUL, a, b, m.sew)               
+        m.escrever_elemento(c["vd"], i, r)   
 
 
 def _exec_vtdot(m: Maquina, c: dict, n: int):

@@ -1,6 +1,7 @@
 from takum import float_para_takum, takum_para_float, takum_para_binario
 from calculos import takum_alargar, takum_estreitar, takum_dot, takum_add, takum_sub, takum_mul
 from estruturas import Maquina, TAM_MEMORIA
+from instrucoes import exec_vtadd, exec_vtsub, exec_vtmul
 
 # ------------------------------ Testes de Calculo ------------------------------
 # --- add ---
@@ -135,7 +136,7 @@ for end in (TAM_MEMORIA - 2, -1):
     try:
         m2.ler_memoria(end, 4)
     except IndexError as e:
-        print("erro esperado:", e)
+        print("erro e_exec_vt_binariasperado:", e)
 print('\n')
 
 # --- PC: carregar programa e percorrer ---
@@ -162,3 +163,38 @@ for pc_ruim in (2, 16, -4):                                     # desalinhado, a
         m2.buscar_instrucao()
     except IndexError as e:
         print("erro esperado:", e)
+
+
+# ------------------------------ Testes de Instruções ------------------------------
+
+m3 = Maquina()
+m3.vill, m3.sew, m3.vl = False, 16, 3
+for i, (x, y) in enumerate([(1.5, 2.25), (4.0, 0.5), (-2.0, 1.0)]):
+    m3.escrever_elemento(2, i, float_para_takum(x, 16))   # vs2
+    m3.escrever_elemento(1, i, float_para_takum(y, 16))   # vs1
+
+for i in range(m3.vl):
+    valor = m3.ler_elemento(1, i)
+    print(f"vs1[{i}] = {takum_para_float(valor, 16)}")
+
+for i in range(m3.vl):
+    valor = m3.ler_elemento(2, i)
+    print(f"vs2[{i}] =  {takum_para_float(valor, 16)}")
+
+# --- Add -------------------------------------
+exec_vtadd(m3, {"vd": 3, "vs2": 2, "vs1": 1})
+print([takum_para_float(m3.ler_elemento(3, i), 16) for i in range(4)])
+# [3.75, 4.5, -1.0, 0.0]  (a lane 3 é cauda e fica 0)
+print('\n')
+
+# --- Sub -------------------------------------
+exec_vtsub(m3, {"vd": 3, "vs2": 2, "vs1": 1})
+print([takum_para_float(m3.ler_elemento(3, i), 16) for i in range(4)])
+# [-75, 3.5, -3.0, 0.0] 
+print('\n')
+
+# --- Mul -------------------------------------
+exec_vtmul(m3, {"vd": 3, "vs2": 2, "vs1": 1})
+print([takum_para_float(m3.ler_elemento(3, i), 16) for i in range(4)])
+# [3.37, 2, -2, 0.0] 
+print('\n')
