@@ -1,7 +1,7 @@
 from takum import float_para_takum, takum_para_float, takum_para_binario
 from calculos import takum_alargar, takum_estreitar, takum_dot, takum_add, takum_sub, takum_mul
 from estruturas import Maquina, TAM_MEMORIA
-from instrucoes import exec_vtadd, exec_vtsub, exec_vtmul, exec_vsetvli, _exec_vle, _exec_vse, exec_addi, exec_bne, exec_vncvt
+from instrucoes import exec_vtadd, exec_vtsub, exec_vtmul, exec_vsetvli, _exec_vle, _exec_vse, exec_addi, exec_bne, exec_vncvt, exec_vtdot8, exec_vtdot16
 from codificacao import InstrucaoIlegal
 
 # ==================================================================================
@@ -263,9 +263,9 @@ while not m7.fim_do_programa():
 print("laço: x6 =", m7.ler_escalar(6), "| x7 =", m7.ler_escalar(7))   # 3 | 0
 
 # ==================================================================================
-# Testes de Instruções - vncvt
+# Testes de Instruções - vncvt e dot
 # ==================================================================================
-
+# ---------------- vncvt ----------------
 m8 = Maquina()
 m8.vill, m8.sew, m8.vl = False, 16, 4                    # destino T16, 4 lanes
 for i, v in enumerate([3.14159, -2.5, 100.0, 0.001]):
@@ -273,3 +273,45 @@ for i, v in enumerate([3.14159, -2.5, 100.0, 0.001]):
 exec_vncvt(m8, {"vd": 4, "vs2": 2, "vs1": 0b10100})
 print([takum_para_float(m8.ler_elemento(4, i, 16), 16) for i in range(4)])
 # ~[3.14, -2.5, 100.0, 0.001], com o arredondamento do T16
+
+# ---------------- dot ----------------
+def preparar(sew=32, vl=2):
+    m = Maquina()
+    m.vill, m.sew, m.vl = False, sew, vl
+    return m
+
+def mostrar(m, nome, reg, n, k):
+    for lane in range(m.vl):
+        elems = [takum_para_float(m.ler_elemento(reg, lane * k + j, sew=n), n) for j in range(k)]
+        print(f"{nome} lane {lane}: {elems}")
+
+m = preparar(vl=2)
+A = [1, 2, 3, 0.5,   -1, 1, 2, 2]              # vs2 = v2 (8 elementos T8)
+B = [1, 1, 2, 4,      1, 1, 0.5, 0.25]         # vs1 = v1
+for i in range(8):
+    m.escrever_elemento(2, i, float_para_takum(A[i], 8), sew=8)
+    m.escrever_elemento(1, i, float_para_takum(B[i], 8), sew=8)
+m.escrever_elemento(3, 0, float_para_takum(10.0, 32), sew=32)    # acumulador inicial em vd[0]
+m.escrever_elemento(3, 1, float_para_takum(5.0, 32), sew=32)     # vd[1]: não deve ser alterado
+
+mostrar(m, "vs2", 2, 8, 4)
+mostrar(m, "vs1", 1, 8, 4)
+
+exec_vtdot8(m, {"vd": 3, "vs2": 2, "vs1": 1})
+
+r = takum_para_float(m.ler_elemento(3, 0, sew=32), 32)
+print(f"vtdot8: vd[0] = {r:.4f} (esperado 22.5 = 10 + 11 + 1.5)")
+print("vd[1] intacto:", takum_para_float(m.ler_elemento(3, 1, sew=32), 32), "(esperado 5.0)")
+
+# ---------------- vtdot16: 2 lanes x 2 elementos T16 ----------------
+m = preparar(vl=2)
+A = [1.5, 2.0, -1.0, 4.0]
+B = [2.0, 3.0,  0.5, 0.25]
+for i in range(4):
+    m.escrever_elemento(2, i, float_para_takum(A[i], 16), sew=16)
+    m.escrever_elemento(1, i, float_para_takum(B[i], 16), sew=16)
+m.escrever_elemento(3, 0, float_para_takum(0.0, 32), sew=32)
+
+exec_vtdot16(m, {"vd": 3, "vs2": 2, "vs1": 1})
+r = takum_para_float(m.ler_elemento(3, 0, sew=32), 32)
+print(f"vtdot16: vd[0] = {r:.4f} (esperado 9.5 = 1 + 3 + 6 - 0.5 + 1)")
