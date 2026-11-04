@@ -67,8 +67,7 @@ class Maquina:
             raise IndexError(f"elemento {i} fora do registrador v{reg} (SEW={sew})")
         return int.from_bytes(self.regs_vetoriais[reg][ini:ini + n], "little")
 
-    def escrever_elemento(self, reg: int, i: int, valor: int,
-                          sew: int | None = None) -> None:
+    def escrever_elemento(self, reg: int, i: int, valor: int, sew: int | None = None) -> None:
         sew = sew or self.sew
         n = sew // 8
         ini = i * n
