@@ -5,9 +5,8 @@ Ciclo buscar -> decodificar -> executar e demonstração.
 Executar:  python main.py
 """
 from estruturas import Maquina
-from codificacao import identificar, codificar_vt
+from codificacao import identificar, codificar
 from instrucoes import TABELA_EXEC
-
 
 def ciclo(m: Maquina) -> None:
     """Um ciclo do caminho de dados."""
@@ -31,7 +30,7 @@ def main() -> None:
     m = Maquina()
 
     # Teste da codificação: vtmul.vv v1, v2, v3  ->  0x922190AB
-    palavra = codificar_vt("vtmul.vv", vd=1, vs2=2, vs1=3)
+    palavra = codificar("vtmul.vv", 1, 2, 3)
     print(f"vtmul.vv v1, v2, v3 = 0x{palavra:08X}")
     nome, campos = identificar(palavra)
     print(nome, campos)
@@ -39,7 +38,6 @@ def main() -> None:
     # Quando as instruções estiverem implementadas:
     # m.carregar_programa([...palavras...])
     # executar(m)
-
 
 if __name__ == "__main__":
     main()

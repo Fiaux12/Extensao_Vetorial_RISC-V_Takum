@@ -2,7 +2,8 @@ from takum import float_para_takum, takum_para_float, takum_para_binario
 from calculos import takum_alargar, takum_estreitar, takum_dot, takum_add, takum_sub, takum_mul
 from estruturas import Maquina, TAM_MEMORIA
 from instrucoes import exec_vtadd, exec_vtsub, exec_vtmul, exec_vsetvli, _exec_vle, _exec_vse, exec_addi, exec_bne, exec_vncvt, exec_vtdot8, exec_vtdot16
-from codificacao import InstrucaoIlegal
+from codificacao import InstrucaoIlegal, montar
+from main import executar
 
 # ==================================================================================
 # Testes de Calculo
@@ -315,3 +316,192 @@ m.escrever_elemento(3, 0, float_para_takum(0.0, 32), sew=32)
 exec_vtdot16(m, {"vd": 3, "vs2": 2, "vs1": 1})
 r = takum_para_float(m.ler_elemento(3, 0, sew=32), 32)
 print(f"vtdot16: vd[0] = {r:.4f} (esperado 9.5 = 1 + 3 + 6 - 0.5 + 1)")
+
+
+# ==================================================================================
+# Testes Do Funcionamento Geral
+# ==================================================================================
+
+# ---------------- add/sub/mult ----------------
+def mostrar_memoria(m, titulo, ini, qtd, n):
+    print(f"\n{titulo}")
+    print("  endereço | binário          | hex    | valor")
+    for i in range(qtd):
+        end = ini + i * (n // 8)
+        bits = int.from_bytes(m.ler_memoria(end, n // 8), "little")
+        print(f"  0x{end:04X}   | {bits:0{n}b} | 0x{bits:0{n // 4}X} | {takum_para_float(bits, n):.6g}")
+
+
+def mostrar_escalares(m):
+    print("\nBanco de registradores escalares (só os diferentes de zero)")
+    for i, v in enumerate(m.regs_escalares):
+        if v != 0:
+            print(f"  x{i:<2} = {v} (0x{v:X})")
+
+
+def mostrar_vetorial(m, reg, n):
+    print(f"\nv{reg}  (SEW = {n}, vl = {m.vl}, VLMAX = {len(m.regs_vetoriais[reg]) * 8 // n})")
+    print("  bytes:", m.regs_vetoriais[reg].hex(" "))
+    print("  lane | binário          | valor        | obs")
+    for i in range(len(m.regs_vetoriais[reg]) * 8 // n):
+        bits = m.ler_elemento(reg, i, sew=n)
+        obs = "" if i < m.vl else "cauda (>= vl)"
+        print(f"  {i:<4} | {bits:0{n}b} | {takum_para_float(bits, n):<10.6g} | {obs}")
+
+END_X, END_Y, END_Z = 0x100, 0x200, 0x300
+N = 16                                 
+QTD = 4
+m = Maquina()
+
+m.carregar_programa(montar([
+    f"li a0, {END_X}",                 # Carregar Imediato
+    f"li a1, {END_Y}",
+    f"li a2, {END_Z}",
+    f"li t1, {QTD}",
+    "vsetvli t0, t1, e16, m1, ta, ma",
+    "vle16.v v1, (a0)",                # Operação de carga vetorial de elementos de 16 bits contínuos da memória para um registrador vetorial.
+    "vle16.v v2, (a1)",
+    "vtadd.vv v3, v1, v2",             # add/sub/mult
+    "vse16.v v3, (a2)",                # Salvar) um vetor de elementos de 16 bits da memória de registradores vetoriais para a memória RAM
+]))
+
+X = [1.5, 2.0, -3.0, 0.5]
+Y = [2.25, 4.0, 1.0, 0.5]
+for i in range(QTD):
+    m.escrever_memoria(END_X + 2 * i, float_para_takum(X[i], N).to_bytes(2, "little"))
+    m.escrever_memoria(END_Y + 2 * i, float_para_takum(Y[i], N).to_bytes(2, "little"))
+ 
+print("=== ANTES ===")
+mostrar_memoria(m, "Memória: vetor X", END_X, QTD, N)
+mostrar_memoria(m, "Memória: vetor Y", END_Y, QTD, N)
+mostrar_memoria(m, "Memória: resultado Z (ainda zerado)", END_Z, QTD, N)
+ 
+executar(m)
+ 
+print("\n=== DEPOIS ===")
+mostrar_memoria(m, "Memória: vetor X", END_X, QTD, N)
+mostrar_memoria(m, "Memória: vetor Y", END_Y, QTD, N)
+mostrar_memoria(m, "Memória: resultado Z = X + Y", END_Z, QTD, N)
+mostrar_escalares(m)
+for r in (1, 2, 3):
+    mostrar_vetorial(m, r, N)
+
+
+# ---------------- vncvt  ----------------
+END_X, END_Z = 0x100, 0x200
+QTD = 4
+
+
+def mostrar_memoria(m, titulo, ini, qtd, n):
+    print(f"\n{titulo}")
+    print("  endereço | binário                          | hex        | valor")
+    for i in range(qtd):
+        end = ini + i * (n // 8)
+        bits = int.from_bytes(m.ler_memoria(end, n // 8), "little")
+        print(f"  0x{end:04X}   | {bits:0{n}b} | 0x{bits:0{n // 4}X} | {takum_para_float(bits, n):.8g}")
+
+
+def mostrar_vetorial(m, reg, n, ativas):
+    total = len(m.regs_vetoriais[reg]) * 8 // n
+    print(f"\nv{reg}  (lido como T{n}, {ativas} elementos ativos de {total})")
+    print("  bytes:", m.regs_vetoriais[reg].hex(" "))
+    for i in range(total):
+        bits = m.ler_elemento(reg, i, sew=n)
+        print(f"  lane {i:<2} | {takum_para_float(bits, n):<12.8g} | {'' if i < ativas else 'cauda'}")
+
+
+m = Maquina()
+m.carregar_programa(montar([
+    f"li a0, {END_X}", f"li a2, {END_Z}",
+    f"li t1, {QTD}",
+    "vsetvli t0, t1, e32, m1, ta, ma",    # SEW = 32 para carregar os T32
+    "vle32.v v2, (a0)",                   # fonte: 4 elementos T32
+    "vsetvli t0, t1, e16, m1, ta, ma",    # SEW = 16 = largura do destino
+    "vncvt.t.t v4, v2",                   # T32 -> T16
+    "vse16.v v4, (a2)",                   # 4 elementos T16 -> memória
+]))
+
+X = [3.14159, -2.5, 100.0, 0.001]
+for i in range(QTD):
+    m.escrever_memoria(END_X + 4 * i, float_para_takum(X[i], 32).to_bytes(4, "little"))
+
+print("=== ANTES ===")
+mostrar_memoria(m, "Memória: fonte (T32)", END_X, QTD, 32)
+mostrar_memoria(m, "Memória: destino (T16, ainda zerado)", END_Z, QTD, 16)
+
+executar(m)
+
+print("\n=== DEPOIS ===")
+mostrar_memoria(m, "Memória: destino (T16)", END_Z, QTD, 16)
+mostrar_vetorial(m, 2, 32, QTD)        # fonte (v2 ocupa 4 lanes de 32 bits)
+mostrar_vetorial(m, 4, 16, QTD)        # destino (v4, 4 lanes ativas de 16 bits)
+
+print("\nErro de arredondamento do estreitamento:")
+for i in range(QTD):
+    orig = takum_para_float(int.from_bytes(m.ler_memoria(END_X + 4 * i, 4), "little"), 32)
+    conv = takum_para_float(int.from_bytes(m.ler_memoria(END_Z + 2 * i, 2), "little"), 16)
+    print(f"  T32 {orig:<12.8g} -> T16 {conv:<12.8g}  erro relativo = {abs(conv - orig) / abs(orig):.2e}")
+
+# ---------------- produto escalar vetorial  ----------------
+
+
+END_X, END_Y, END_ACC, END_Z = 0x100, 0x200, 0x300, 0x400
+
+
+def mostrar_memoria(m, titulo, ini, qtd, n):
+    print(f"\n{titulo}")
+    print("  endereço | binário                          | hex        | valor")
+    for i in range(qtd):
+        end = ini + i * (n // 8)
+        bits = int.from_bytes(m.ler_memoria(end, n // 8), "little")
+        print(f"  0x{end:04X}   | {bits:0{n}b} | 0x{bits:0{n // 4}X} | {takum_para_float(bits, n):.6g}")
+
+
+def mostrar_vetorial(m, reg, n, ativas):
+    """ativas = número de elementos de n bits dentro de vl (o resto é cauda)."""
+    total = len(m.regs_vetoriais[reg]) * 8 // n
+    print(f"\nv{reg}  (lido como T{n}, {ativas} elementos ativos de {total})")
+    print("  bytes:", m.regs_vetoriais[reg].hex(" "))
+    for i in range(total):
+        bits = m.ler_elemento(reg, i, sew=n)
+        print(f"  lane {i:<2} | {takum_para_float(bits, n):<10.6g} | {'' if i < ativas else 'cauda'}")
+
+
+m = Maquina()
+m.carregar_programa(montar([
+    f"li a0, {END_X}",
+    f"li a1, {END_Y}", 
+    f"li a2, {END_ACC}", 
+    f"li a3, {END_Z}",
+    "li t1, 2",                           # 2 lanes de 32 bits = 8 elementos T8
+    "vsetvli t0, t1, e32, m1, ta, ma",
+    "vle32.v v1, (a0)",                   # 8 elementos T8 (X)
+    "vle32.v v2, (a1)",                   # 8 elementos T8 (Y)
+    "vle32.v v3, (a2)",                   # acumulador inicial em v3[0]
+    "vtdot8.vv v3, v2, v1",
+    "li t1, 1",
+    "vsetvli t0, t1, e32, m1, ta, ma",    # vl = 1 para gravar só o escalar
+    "vse32.v v3, (a3)",                   # 1 elemento T32 -> memória
+]))
+
+X = [1.5, 2.0, -3.0, 0.5,  1.0, 2.0, 3.0, 4.0]     # lane 0 | lane 1
+Y = [2.25, 4.0, 1.0, 0.5,  1.0, 0.5, 0.5, 0.25]
+for i in range(8):                                  # T8 = 1 byte por elemento
+    m.escrever_memoria(END_X + i, float_para_takum(X[i], 8).to_bytes(1, "little"))
+    m.escrever_memoria(END_Y + i, float_para_takum(Y[i], 8).to_bytes(1, "little"))
+m.escrever_memoria(END_ACC, float_para_takum(10.0, 32).to_bytes(4, "little"))   # acumulador T32
+
+print("=== ANTES ===")
+mostrar_memoria(m, "Memória: X (T8)", END_X, 8, 8)
+mostrar_memoria(m, "Memória: Y (T8)", END_Y, 8, 8)
+mostrar_memoria(m, "Memória: acumulador inicial (T32)", END_ACC, 1, 32)
+mostrar_memoria(m, "Memória: resultado (T32, ainda zerado)", END_Z, 1, 32)
+
+executar(m)
+
+print("\n=== DEPOIS ===")
+mostrar_memoria(m, "Memória: resultado = acc + X·Y (T32)", END_Z, 1, 32)
+mostrar_vetorial(m, 1, 8, 8)       # X em v1, lido como T8
+mostrar_vetorial(m, 2, 8, 8)       # Y em v2
+mostrar_vetorial(m, 3, 32, 1)      # v3: só a lane 0 é o resultado
+print("\nesperado (valores exatos): 10 + 8.625 + 4.5 = 23.125 (T8 introduz erro nas entradas)")
