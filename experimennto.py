@@ -6,8 +6,12 @@ medido contra uma referência em precisão alta.
 
 Executar:  python experimento.py
 """
+import math
 import random
 from decimal import Decimal, localcontext
+
+import numpy as np
+
 from estruturas import Maquina, VLEN
 from codificacao import montar
 from takum import float_para_takum, takum_para_float
@@ -26,6 +30,9 @@ END_X = 0x2000              # vetor x
 END_ACC = 0x3000            # acumulador inicial (zero)
 END_Y = 0x3100              # resultado da linha
 
+# --- FP8: (bits de expoente, bits de mantissa, bias, maior valor finito) ------
+FP8 = (4, 3, 7, 448.0)      # E4M3. Para E5M2 use (5, 2, 15, 57344.0)
+
 
 # =============================================================================
 # 1. Dados e referência
@@ -34,16 +41,16 @@ def gerar_dados(linhas: int, colunas: int, esparsidade: float, semente: int):
     """Devolve (A, x): A como lista de listas de float, com a fração
     `esparsidade` de zeros; x como lista de float. Usa random com semente fixa."""
     rng = random.Random(semente)               # gerador próprio: não mexe no random global
- 
+
     def valor():
         return rng.uniform(-1.0, 1.0)
- 
+
     A = [[0.0 if rng.random() < esparsidade else valor() for _ in range(colunas)]
          for _ in range(linhas)]
     x = [valor() for _ in range(colunas)]
     return A, x
- 
- 
+
+
 def calcular_referencia(A: list, x: list) -> list:
     """y_ref = A . x em precisão alta (decimal com 34 dígitos, como o Float128),
     a partir dos valores originais. Devolve uma lista de Decimal."""
@@ -63,6 +70,8 @@ def calcular_referencia(A: list, x: list) -> list:
 # 2. Lado Takum (executado no simulador)
 # =============================================================================
 def pedaco_elementos(n: int) -> int:
+    """Quantos elementos de n bits cabem em um pedaço processado por UM vtdot:
+    4 lanes de 32 bits (VLEN = 128) x (32 // n) elementos por lane."""
     if n not in (8, 16, 32):
         raise ValueError(f"largura inválida: {n}")
     lanes = VLEN // 32                  # o vtdot exige SEW = 32, então vl máximo = VLEN/32
@@ -73,7 +82,6 @@ def escrever_vetor_na_memoria(m: Maquina, endereco: int, valores: list, n: int,
                               tamanho_total: int) -> None:
     """Converte cada valor para Takum de n bits e grava na memória (little-endian),
     completando com zeros até `tamanho_total` elementos."""
-
     if len(valores) > tamanho_total:
         raise ValueError(f"{len(valores)} valores não cabem em {tamanho_total} elementos")
     n_bytes = n // 8
@@ -142,6 +150,7 @@ def executar_takum_linha(m: Maquina, linha: list, x: list, n: int) -> float:
     bits = int.from_bytes(m.ler_memoria(END_Y, 4), "little")
     return takum_para_float(bits, 32)
 
+
 def executar_takum(A: list, x: list, n: int) -> list:
     """y = A . x em T<n>: uma linha por vez, com Maquina nova a cada linha."""
     return [executar_takum_linha(Maquina(), linha, x, n) for linha in A]
@@ -150,16 +159,47 @@ def executar_takum(A: list, x: list, n: int) -> list:
 # =============================================================================
 # 3. Lado padrão IEEE (aproximado em Python)
 # =============================================================================
+def _arredondar_minifloat(v: float, exp_bits: int, man_bits: int, bias: int,
+                          maximo: float) -> float:
+    """Arredonda v para o ponto flutuante de poucos bits (ao mais próximo, empate
+    para par). Subnormais incluídos. Fora da faixa, satura no maior valor finito."""
+    if v == 0.0 or math.isnan(v):
+        return v
+    sinal = -1.0 if v < 0 else 1.0
+    a = abs(v)
+    if a >= maximo:
+        return sinal * maximo
+    e = math.frexp(a)[1] - 1                  # a = m * 2^e, com m em [1, 2)
+    e = max(e, 1 - bias)                      # subnormais usam o menor expoente
+    passo = 2.0 ** (e - man_bits)             # distância entre valores vizinhos
+    return sinal * min(round(a / passo) * passo, maximo)   # round() de int: empate par
+
+
 def quantizar_ieee(valor: float, n: int) -> float:
     """Arredonda para FP<n> e devolve como float. FP16/FP32: numpy.
-    FP8: conversão de ida e volta (PyTorch ou ml_dtypes)."""
-    raise NotImplementedError
+    FP8: arredondamento manual (_arredondar_minifloat), sem biblioteca extra."""
+    if n == 32:
+        return float(np.float32(valor))
+    if n == 16:
+        return float(np.float16(valor))
+    if n == 8:
+        return _arredondar_minifloat(valor, *FP8)
+    raise ValueError(f"largura inválida: {n}")
 
 
 def calcular_padrao(A: list, x: list, n: int) -> list:
-    """y = A . x com A e x guardados em FP<n> (quantizar_ieee) e a
-    multiplicação feita pelos operadores normais do Python."""
-    raise NotImplementedError
+    """y = A . x com A e x guardados em FP<n> (quantizar_ieee). Os produtos e o
+    acumulador são FP32 e a soma é arredondada a cada passo (como o vtdot, que
+    acumula em T32). Laço explícito: nada de sum() ou np.dot."""
+    xq = [quantizar_ieee(v, n) for v in x]
+    y = []
+    for linha in A:
+        acc = np.float32(0.0)
+        for a, xj in zip(linha, xq):
+            produto = np.float32(quantizar_ieee(a, n)) * np.float32(xj)
+            acc = np.float32(acc + produto)             # arredonda a cada soma
+        y.append(float(acc))
+    return y
 
 
 # =============================================================================
