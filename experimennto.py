@@ -6,6 +6,8 @@ medido contra uma referência em precisão alta.
 
 Executar:  python experimento.py
 """
+import random
+from decimal import Decimal, localcontext
 from estruturas import Maquina, VLEN
 from codificacao import montar
 from takum import float_para_takum, takum_para_float
@@ -31,22 +33,40 @@ END_Y = 0x3100              # resultado da linha
 def gerar_dados(linhas: int, colunas: int, esparsidade: float, semente: int):
     """Devolve (A, x): A como lista de listas de float, com a fração
     `esparsidade` de zeros; x como lista de float. Usa random com semente fixa."""
-    raise NotImplementedError
-
-
+    rng = random.Random(semente)               # gerador próprio: não mexe no random global
+ 
+    def valor():
+        return rng.uniform(-1.0, 1.0)
+ 
+    A = [[0.0 if rng.random() < esparsidade else valor() for _ in range(colunas)]
+         for _ in range(linhas)]
+    x = [valor() for _ in range(colunas)]
+    return A, x
+ 
+ 
 def calcular_referencia(A: list, x: list) -> list:
-    """y_ref = A . x em precisão alta, a partir dos valores originais
-    (float do Python ou decimal)."""
-    raise NotImplementedError
+    """y_ref = A . x em precisão alta (decimal com 34 dígitos, como o Float128),
+    a partir dos valores originais. Devolve uma lista de Decimal."""
+    with localcontext() as ctx:
+        ctx.prec = 34
+        x_dec = [Decimal(v) for v in x]        # Decimal(float) é exato
+        y_ref = []
+        for linha in A:
+            soma = Decimal(0)
+            for a, xj in zip(linha, x_dec):
+                soma += Decimal(a) * xj
+            y_ref.append(soma)
+    return y_ref
 
 
 # =============================================================================
 # 2. Lado Takum (executado no simulador)
 # =============================================================================
 def pedaco_elementos(n: int) -> int:
-    """Quantos elementos de n bits cabem em um pedaço processado por UM vtdot:
-    4 lanes de 32 bits (VLEN = 128) x (32 // n) elementos por lane."""
-    raise NotImplementedError
+    if n not in (8, 16, 32):
+        raise ValueError(f"largura inválida: {n}")
+    lanes = VLEN // 32                  # o vtdot exige SEW = 32, então vl máximo = VLEN/32
+    return lanes * (32 // n)
 
 
 def escrever_vetor_na_memoria(m: Maquina, endereco: int, valores: list, n: int,
