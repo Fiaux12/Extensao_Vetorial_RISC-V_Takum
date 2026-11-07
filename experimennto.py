@@ -207,18 +207,36 @@ def calcular_padrao(A: list, x: list, n: int) -> list:
 # =============================================================================
 def erro_relativo(y: list, y_ref: list):
     """Devolve (erros, n_excluidos): |y - y_ref| / |y_ref| por linha,
-    excluindo (e contando) as linhas com y_ref == 0."""
-    raise NotImplementedError
+    excluindo (e contando) as linhas com y_ref == 0. Um y inválido (NaN/inf,
+    por exemplo NaR) conta como erro infinito."""
+    erros, excluidos = [], 0
+    for yi, ref in zip(y, y_ref):
+        if ref == 0:
+            excluidos += 1
+        elif math.isnan(yi) or math.isinf(yi):
+            erros.append(math.inf)
+        else:
+            erros.append(float(abs(Decimal(yi) - ref) / abs(ref)))   # Decimal(float) é exato
+    return erros, excluidos
 
 
 def resumir(erros: list) -> dict:
     """Mediana, percentil 95 e máximo dos erros."""
-    raise NotImplementedError
+    if not erros:
+        return {"mediana": math.nan, "p95": math.nan, "maximo": math.nan}
+    return {"mediana": float(np.median(erros)),
+            "p95": float(np.percentile(erros, 95)),
+            "maximo": max(erros)}
 
 
 def imprimir_tabela(resultados: dict) -> None:
-    """Tabela com uma linha por formato (T8, T16, T32, FP8, FP16, FP32)."""
-    raise NotImplementedError
+    """Tabela com uma linha por formato. `resultados` é {nome: (resumo, excluidas)}."""
+    print(f"\nErro relativo de y = A.x contra a referência "
+          f"({LINHAS}x{COLUNAS}, {ESPARSIDADE:.0%} de zeros, semente {SEMENTE})")
+    print(f"{'Formato':<8}{'Mediana':>12}{'P95':>12}{'Máximo':>12}{'Excluídas':>12}")
+    print("-" * 56)
+    for nome, (r, excluidas) in resultados.items():
+        print(f"{nome:<8}{r['mediana']:>12.2e}{r['p95']:>12.2e}{r['maximo']:>12.2e}{excluidas:>12}")
 
 
 def main() -> None:
