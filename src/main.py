@@ -8,19 +8,22 @@ from estruturas import Maquina
 from codificacao import identificar, codificar
 from instrucoes import TABELA_EXEC
 
-def ciclo(m: Maquina) -> None:
+
+def ciclo(m: Maquina, contador=None) -> None:
     """Um ciclo do caminho de dados."""
     palavra = m.buscar_instrucao()          # BUSCAR   (PC -> memória de instruções)
     nome, campos = identificar(palavra)     # DECODIFICAR (unidade de controle)
+    if contador is not None:
+        contador[nome] += 1                 # contagem dinâmica por mnemônico
     desviou = TABELA_EXEC[nome](m, campos)  # EXECUTAR (banco de registradores + ULA)
     if not desviou:
         m.pc += 4
 
 
-def executar(m: Maquina, max_ciclos: int = 100_000) -> None:
+def executar(m: Maquina, max_ciclos: int = 100_000, contador=None) -> None:
     n = 0
     while not m.fim_do_programa():
-        ciclo(m)
+        ciclo(m, contador)
         n += 1
         if n >= max_ciclos:
             raise RuntimeError("limite de ciclos atingido (laço infinito?)")

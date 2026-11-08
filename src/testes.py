@@ -358,7 +358,7 @@ m.carregar_programa(montar([
     f"li a1, {END_Y}",
     f"li a2, {END_Z}",
     f"li t1, {QTD}",
-    "vsetvli t0, t1, e16, m1, ta, ma",
+    "vsetvli t0, t1, e16, m1, ta, ma", #configura o processador vetorial antes de realizar operações com vetores
     "vle16.v v1, (a0)",                # Operação de carga vetorial de elementos de 16 bits contínuos da memória para um registrador vetorial.
     "vle16.v v2, (a1)",
     "vtadd.vv v3, v1, v2",             # add/sub/mult
