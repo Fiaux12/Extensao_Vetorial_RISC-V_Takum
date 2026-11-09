@@ -17,7 +17,7 @@ from estruturas import Maquina, VLEN, TAM_MEMORIA
 from codificacao import montar
 from takum import float_para_takum, takum_para_float
 from main import executar
-from graficos import plotar_grafico
+from graficos import gerar_graficos_por_tamanho
 
 # --- Parâmetros do experimento ----------------------------------------------
 LINHAS = 16
@@ -123,7 +123,6 @@ def montar_programa_linha(n: int, n_pedacos: int) -> list:
         "vsetvli t0, t1, e32, m1, ta, ma",  # vl = 1: grava só o escalar
         "vse32.v v3, (a3)",
     ]
-    print("linhas:",linhas)
     return montar(linhas)
 
 
@@ -356,22 +355,23 @@ def comparar_resultados(y_ref: list, y_takum: list, y_padrao: list, n: int) -> N
 def demonstracao(n: int = 16, linhas: int = 4, colunas: int = 6,
                  esparsidade: float = 0.5, semente: int = 7) -> None:
     """Versão pequena do experimento, mostrando a memória e a comparação."""
-    A, x = gerar_dados(linhas, colunas, esparsidade, semente)
-    print("A original:")
-    for linha in A:
-        print("  ", [f"{v:.4f}" for v in linha])
-    print("x original:", [f"{v:.4f}" for v in x])
+    # A, x = gerar_dados(linhas, colunas, esparsidade, semente)
+    # print("A original:")
+    # for linha in A:
+    #     print("  ", [f"{v:.4f}" for v in linha])
+    # print("x original:", [f"{v:.4f}" for v in x])
 
-    m, y_takum, L = simular_takum(A, x, n)
-    mostrar_dados_na_memoria(m, L, A, x)
-    mostrar_resultado_na_memoria(m, L)
-    y_ref = calcular_referencia(A, x)
-    comparar_resultados(y_ref, y_takum, calcular_padrao(A, x, n), n)
+    # m, y_takum, L = simular_takum(A, x, n)
+    # mostrar_dados_na_memoria(m, L, A, x)
+    # mostrar_resultado_na_memoria(m, L)
+    # y_ref = calcular_referencia(A, x)
+    # comparar_resultados(y_ref, y_takum, calcular_padrao(A, x, n), n)
     
-    imprimir_tabela(calcular_erros(A, x, y_ref),
-                    f"{linhas}x{colunas}, {esparsidade:.0%} de zeros, semente {semente}")
+    # imprimir_tabela(calcular_erros(A, x, y_ref),
+    #                 f"{linhas}x{colunas}, {esparsidade:.0%} de zeros, semente {semente}")
 
-    plotar_grafico()
+    gerar_graficos_por_tamanho("mediana", "media", 3)
+
 
 def main() -> None:
     A, x = gerar_dados(LINHAS, COLUNAS, ESPARSIDADE, SEMENTE)

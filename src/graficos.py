@@ -96,7 +96,7 @@ def plotar_erro_por_tamanho(curvas: dict, tamanhos: list, metrica: str = "median
     ax.set_xticks(tamanhos)
     ax.set_xlabel("Tamanho da matriz (N × N)")
     ax.set_ylabel(f"{rotulo} do erro relativo (escala log)")
-    ax.set_title(f"{rotulo} do erro relativo de y = A.x: Takum (—) x IEEE 754 (- -)")
+    ax.set_title(f"{rotulo} do erro relativo de y = A.x")
     ax.grid(alpha=0.3)
     ax.legend(ncol=2)
     fig.tight_layout()
@@ -107,6 +107,89 @@ def plotar_erro_por_tamanho(curvas: dict, tamanhos: list, metrica: str = "median
     else:
         plt.show()
 
+def coletar_erros_relativos(tamanho: int = 100, esparsidade: float = ESPARSIDADE,
+                            semente: int = SEMENTE, repeticoes: int = 3) -> dict:
+    """Erro relativo de cada linha de y (todas as repetições juntas), por formato.
+    Usa a mesma semente de varrer_tamanhos, então os dados são os mesmos dos
+    gráficos por tamanho."""
+    erros = {f"{p}{w}": [] for w in LARGURAS for p in ("T", "FP")}
+    for r in range(repeticoes):
+        A, x = gerar_dados(tamanho, tamanho, esparsidade, semente + 1000 * tamanho + r)
+        y_ref = calcular_referencia(A, x)
+        for w in LARGURAS:
+            erros[f"T{w}"] += erro_relativo(executar_takum(A, x, w), y_ref)[0]
+            erros[f"FP{w}"] += erro_relativo(calcular_padrao(A, x, w), y_ref)[0]
+        print(f"  repetição {r + 1}/{repeticoes} concluída")
+    return erros
+
+
+def plotar_violino(erros: dict, tamanho: int, arquivo: str | None = None) -> None:
+    """Violin plot de log10(erro relativo), um violino por formato, Takum e IEEE
+    lado a lado em cada largura. Traço preto = mediana; losango = média (a mesma
+    média do gráfico por tamanho). O n sob cada rótulo é o número de linhas
+    plotadas: erros iguais a zero ou infinitos não têm log e ficam de fora."""
+    import matplotlib
+    if arquivo:
+        matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from matplotlib.ticker import FuncFormatter, MaxNLocator
+
+    cor = {"T": "#1f77b4", "FP": "#ff7f0e"}
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    posicoes, rotulos = [], []
+
+    for g, w in enumerate(LARGURAS):
+        for deslocamento, prefixo in ((-0.2, "T"), (0.2, "FP")):
+            nome = f"{prefixo}{w}"
+            validos = [e for e in erros[nome] if 0 < e < math.inf]
+            pos = g + 1 + deslocamento
+            posicoes.append(pos)
+            rotulos.append(f"{nome}\n(n={len(validos)})")
+            if len(validos) < 2:
+                continue
+            logs = np.log10(validos)
+
+            partes = ax.violinplot(logs, positions=[pos], widths=0.36, showextrema=False)
+            for corpo in partes["bodies"]:
+                corpo.set_facecolor(cor[prefixo])
+                corpo.set_edgecolor(cor[prefixo])
+                corpo.set_alpha(0.55)
+
+            ax.hlines(float(np.median(logs)), pos - 0.14, pos + 0.14, color="black", lw=2)
+            media = float(np.mean(erros[nome]))
+            if 0 < media < math.inf:
+                ax.scatter([pos], [math.log10(media)], marker="D", s=28, zorder=3,
+                           color="white", edgecolor="black")
+
+    ax.set_xticks(posicoes)
+    ax.set_xticklabels(rotulos)
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"$10^{{{v:.0f}}}$"))
+    ax.set_ylabel("Erro relativo (escala log)")
+    ax.set_title(f"Distribuição do erro relativo de y = A.x ({tamanho}×{tamanho})")
+    ax.grid(axis="y", alpha=0.3)
+    ax.legend(handles=[plt.Rectangle((0, 0), 1, 1, color=cor["T"], alpha=0.55),
+                       plt.Rectangle((0, 0), 1, 1, color=cor["FP"], alpha=0.55),
+                       Line2D([0], [0], color="black", lw=2),
+                       Line2D([0], [0], marker="D", color="none", markerfacecolor="white",
+                              markeredgecolor="black")],
+              labels=["Takum", "IEEE 754", "Mediana", "Média"], loc="upper right", ncol=2)
+    fig.tight_layout()
+    if arquivo:
+        fig.savefig(arquivo, dpi=150)
+        print(f"gráfico salvo em {arquivo}")
+        plt.close(fig)
+    else:
+        plt.show()
+
+
+def gerar_violino(arquivo: str | None = None, tamanho: int = 100,
+                  repeticoes: int = 3) -> None:
+    """Roda os seis formatos em uma matriz tamanho x tamanho e faz o violin plot."""
+    erros = coletar_erros_relativos(tamanho, repeticoes=repeticoes)
+    plotar_violino(erros, tamanho, arquivo)
+
 
 def gerar_graficos_por_tamanho(arquivo_mediana: str | None = None,
                                arquivo_media: str | None = None,
@@ -115,3 +198,4 @@ def gerar_graficos_por_tamanho(arquivo_mediana: str | None = None,
     curvas = varrer_tamanhos(TAMANHOS, repeticoes=repeticoes)
     plotar_erro_por_tamanho(curvas, TAMANHOS, "mediana", arquivo_mediana)
     plotar_erro_por_tamanho(curvas, TAMANHOS, "media", arquivo_media)
+    gerar_violino("violino", )
