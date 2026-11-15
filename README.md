@@ -72,14 +72,15 @@ contra uma referência em `Decimal` com 34 dígitos.
 python experimennto.py
 ```
 
-Na configuração atual, `demonstracao` executa a multiplicação de uma matriz 6x6 por um vetor e mostra é feita a separação por lane, como esses dados são armazenados na memoria e o resultado da operação. A demonstração também calcula o erro e faz uma comparação entre os formatos Takum e IEEE. 
+Na configuração atual, demonstracao executa a multiplicação de uma matriz 6x6 por um vetor e mostra como é feita a separação por lane, como esses dados são armazenados na memoria e o resultado da operação. A demonstração também calcula o erro e faz uma comparação entre os formatos Takum e IEEE.
 
-Ela imprime o progresso e salva três imagens na pasta atual:
+
+O experimento também é responsavel por imprimir o progresso e salva quatro imagens na pasta atual:
 
 - `mediana.png`: mediana do erro relativo por tamanho de matriz
 - `media.png`: média do erro relativo por tamanho de matriz
 - `violino.png`: distribuição do erro relativo (matriz 100×100)
-- `escalar.png`: mediana do erro relativo para valores maiores que 1
+- `escalar.png`: mediana do erro relativo por faixa de escala
 
 
 
