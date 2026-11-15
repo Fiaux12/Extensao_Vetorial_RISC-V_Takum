@@ -11,13 +11,12 @@ LINHAS = 16
 COLUNAS = 32
 ESPARSIDADE = 0.7           # fração de zeros em A
 SEMENTE = 42
-LARGURAS = (8, 16, 32)    
+LARGURAS = (8, 16, 32)
+
+DECADAS = range(5)          # k = 0..4  ->  [1, 10], ..., [10^4, 10^5]
+TAMANHO = 100               # matriz quadrada fixa
 
 def plotar_grafico(resultados: dict, descricao: str = "", arquivo: str | None = None) -> None:
-    """Gráfico com os mesmos dados de imprimir_tabela: três painéis (erro absoluto
-    médio, erro relativo médio e mediana do erro absoluto), uma barra por formato.
-    Escala logarítmica, porque os erros variam em várias ordens de grandeza.
-    Se `arquivo` for dado, salva a figura nele; senão, abre a janela."""
     import matplotlib
     if arquivo:
         matplotlib.use("Agg")                       # sem janela: só grava o arquivo
@@ -57,7 +56,6 @@ def plotar_grafico(resultados: dict, descricao: str = "", arquivo: str | None = 
         plt.show()
 
 
-
 def varrer_tamanhos(tamanhos=TAMANHOS, esparsidade: float = ESPARSIDADE,
                     semente: int = SEMENTE, repeticoes: int = 3) -> dict:
     curvas = {f"{p}{w}": {"mediana": [], "media": []}
@@ -74,7 +72,6 @@ def varrer_tamanhos(tamanhos=TAMANHOS, esparsidade: float = ESPARSIDADE,
         for nome, e in erros.items():
             curvas[nome]["mediana"].append(float(np.median(e)) if e else math.nan)
             curvas[nome]["media"].append(float(np.mean(e)) if e else math.nan)
-        print(f"  tamanho {t}x{t} concluído")
     return curvas
 
 
@@ -107,6 +104,7 @@ def plotar_erro_por_tamanho(curvas: dict, tamanhos: list, metrica: str = "median
     else:
         plt.show()
 
+
 def coletar_erros_relativos(tamanho: int = 100, esparsidade: float = ESPARSIDADE,
                             semente: int = SEMENTE, repeticoes: int = 3) -> dict:
     """Erro relativo de cada linha de y (todas as repetições juntas), por formato.
@@ -119,7 +117,6 @@ def coletar_erros_relativos(tamanho: int = 100, esparsidade: float = ESPARSIDADE
         for w in LARGURAS:
             erros[f"T{w}"] += erro_relativo(executar_takum(A, x, w), y_ref)[0]
             erros[f"FP{w}"] += erro_relativo(calcular_padrao(A, x, w), y_ref)[0]
-        print(f"  repetição {r + 1}/{repeticoes} concluída")
     return erros
 
 
@@ -191,11 +188,66 @@ def gerar_violino(arquivo: str | None = None, tamanho: int = 100,
     plotar_violino(erros, tamanho, arquivo)
 
 
-def gerar_graficos_por_tamanho(arquivo_mediana: str | None = None,
-                               arquivo_media: str | None = None,
+def escalar_dados(A: list, x: list, k: int):
+    """Mantém o padrão de zeros e a semente: cada módulo |a| em [0, 1) vira
+    10^(k + |a|), log-uniforme em [10^k, 10^(k+1)). Tudo positivo (sem cancelamento).
+    x fica em [0, 1], assim só A muda de escala."""
+    A_k = [[10 ** (k + abs(a)) if a != 0.0 else 0.0 for a in linha] for linha in A]
+    return A_k, [abs(v) for v in x]
+
+
+def varrer_escala(decadas=DECADAS, tamanho: int = TAMANHO,
+                  esparsidade: float = ESPARSIDADE, semente: int = SEMENTE) -> dict:
+    """curvas[formato] = lista com a mediana do erro relativo em cada década."""
+    A0, x0 = gerar_dados(tamanho, tamanho, esparsidade, semente)   # mesma base em todas as décadas
+    curvas = {f"{p}{w}": [] for p in ("T", "FP") for w in LARGURAS}
+    for k in decadas:
+        A, x = escalar_dados(A0, x0, k)
+        y_ref = calcular_referencia(A, x)
+        with np.errstate(over="ignore"):                  # FP16 estoura para inf: esperado
+            for w in LARGURAS:
+                for nome, y in ((f"T{w}", executar_takum(A, x, w)),
+                                (f"FP{w}", calcular_padrao(A, x, w))):
+                    erros = erro_relativo(y, y_ref)[0]
+                    curvas[nome].append(float(np.median(erros)) if erros else float("nan"))
+    return curvas
+
+
+def plotar_escala(curvas: dict, decadas, arquivo: str | None = None) -> None:
+    import matplotlib
+    if arquivo:
+        matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    ks = list(decadas)
+    cor = {8: "#d62728", 16: "#1f77b4", 32: "#2ca02c"}
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for w in LARGURAS:
+        ax.plot(ks, curvas[f"T{w}"], "-o", color=cor[w], label=f"T{w}")
+        ax.plot(ks, curvas[f"FP{w}"], "--s", color=cor[w], label=f"FP{w}")
+    ax.set_yscale("log")
+    ax.set_xticks(ks)
+    ax.set_xticklabels([f"$10^{{{k}}}$–$10^{{{k + 1}}}$" for k in ks])
+    ax.set_xlabel("Faixa dos módulos de A")
+    ax.set_ylabel("Mediana do erro relativo (escala log)")
+    ax.set_title("Mediana do erro relativo de y = A.x por escala de A")
+    ax.grid(alpha=0.3)
+    ax.legend(ncol=2)
+    fig.tight_layout()
+    if arquivo:
+        fig.savefig(arquivo, dpi=150)
+        print(f"gráfico salvo em {arquivo}")
+        plt.close(fig)
+    else:
+        plt.show()
+
+def gerar_graficos_por_tamanho(arquivo_mediana: str | None = "mediana",
+                               arquivo_media: str | None = "media",
                                repeticoes: int = 3) -> None:
     """Roda a varredura (10 a 100, de 10 em 10) e faz os dois gráficos."""
     curvas = varrer_tamanhos(TAMANHOS, repeticoes=repeticoes)
     plotar_erro_por_tamanho(curvas, TAMANHOS, "mediana", arquivo_mediana)
     plotar_erro_por_tamanho(curvas, TAMANHOS, "media", arquivo_media)
     gerar_violino("violino", )
+    plotar_escala(varrer_escala(), DECADAS, "escala.png")
+    print(f"Concluído!!!")
