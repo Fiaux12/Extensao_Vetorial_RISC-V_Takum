@@ -33,7 +33,6 @@ LARGURAS = (8, 16, 32)      # T8/T16/T32 e FP8/FP16/FP32
 # --- FP8: (bits de expoente, bits de mantissa, bias, maior valor finito) ------
 FP8 = (4, 3, 7, 448.0)      # E4M3. Para E5M2 use (5, 2, 15, 57344.0)
 
-
 # =============================================================================
 # 1. Dados e referência
 # =============================================================================
@@ -43,7 +42,7 @@ def gerar_dados(linhas: int, colunas: int, esparsidade: float, semente: int):
     rng = random.Random(semente)               # gerador próprio: não mexe no random global
 
     def valor():
-        return rng.uniform(-1.0, 1.0)
+        return rng.uniform(0.0, 1.0)
 
     A = [[0.0 if rng.random() < esparsidade else valor() for _ in range(colunas)]
          for _ in range(linhas)]
@@ -74,7 +73,7 @@ def pedaco_elementos(n: int) -> int:
     4 lanes de 32 bits (VLEN = 128) x (32 // n) elementos por lane."""
     if n not in (8, 16, 32):
         raise ValueError(f"largura inválida: {n}")
-    lanes = VLEN // 32                  # o vtdot exige SEW = 32, então vl máximo = VLEN/32
+    lanes = VLEN // 32                 
     return lanes * (32 // n)
 
 
@@ -253,6 +252,7 @@ def erro_relativo(y: list, y_ref: list):
             erros.append(e)
     return erros, excluidos
 
+
 def erro_absoluto(y: list, y_ref: list) -> list:
     """|y - y_ref| por linha (definido também quando y_ref == 0).
     NaN/inf (ex.: NaR) conta como erro infinito."""
@@ -270,6 +270,7 @@ def calcular_erros(A: list, x: list, y_ref: list) -> dict:
             erros_rel, excluidas = erro_relativo(y, y_ref)
             resultados[nome] = (erro_absoluto(y, y_ref), erros_rel, excluidas)
     return resultados
+
 
 def resumir(erros: list) -> dict:
     """Mediana, percentil 95 e máximo dos erros."""
@@ -352,37 +353,35 @@ def comparar_resultados(y_ref: list, y_takum: list, y_padrao: list, n: int) -> N
         print(f"{i:<6}{float(ref):>13.6f}{yt:>13.6f}{yp:>13.6f}{fmt(et)}{fmt(ep)}  {melhor}")
 
 
-def demonstracao(n: int = 16, linhas: int = 4, colunas: int = 6,
+def demonstracao(n: int = 16, linhas: int = 6, colunas: int = 6,
                  esparsidade: float = 0.5, semente: int = 7) -> None:
     """Versão pequena do experimento, mostrando a memória e a comparação."""
-    # A, x = gerar_dados(linhas, colunas, esparsidade, semente)
-    # print("A original:")
-    # for linha in A:
-    #     print("  ", [f"{v:.4f}" for v in linha])
-    # print("x original:", [f"{v:.4f}" for v in x])
+    A, x = gerar_dados(linhas, colunas, esparsidade, semente)
+    print("A original:")
+    for linha in A:
+        print("  ", [f"{v:.4f}" for v in linha])
 
-    # m, y_takum, L = simular_takum(A, x, n)
-    # mostrar_dados_na_memoria(m, L, A, x)
-    # mostrar_resultado_na_memoria(m, L)
-    # y_ref = calcular_referencia(A, x)
-    # comparar_resultados(y_ref, y_takum, calcular_padrao(A, x, n), n)
-    
-    # imprimir_tabela(calcular_erros(A, x, y_ref),
-    #                 f"{linhas}x{colunas}, {esparsidade:.0%} de zeros, semente {semente}")
+    print("\n")
+    print("x original:", [f"{v:.4f}" for v in x])
 
-    gerar_graficos_por_tamanho("mediana", "media", 3)
+    m, y_takum, L = simular_takum(A, x, n)
+    mostrar_dados_na_memoria(m, L, A, x)
+    mostrar_resultado_na_memoria(m, L)
+    y_ref = calcular_referencia(A, x)
+    comparar_resultados(y_ref, y_takum, calcular_padrao(A, x, n), n)
+    print("\n")
+
+    imprimir_tabela(calcular_erros(A, x, y_ref),
+                    f"{linhas}x{colunas}, {esparsidade:.0%} de zeros, semente {semente}")
 
 
 def main() -> None:
-    A, x = gerar_dados(LINHAS, COLUNAS, ESPARSIDADE, SEMENTE)
-    y_ref = calcular_referencia(A, x)
+    demonstracao(16)
+    print("\n")
+    
+    gerar_graficos_por_tamanho()
 
-    resultados = {}
-    for n in LARGURAS:
-        resultados[f"T{n}"] = erro_relativo(executar_takum(A, x, n), y_ref)
-        resultados[f"FP{n}"] = erro_relativo(calcular_padrao(A, x, n), y_ref)
-
-    imprimir_tabela({nome: (resumir(e), excl) for nome, (e, excl) in resultados.items()})
+if __name__ == "__main__":
+    main()
 
 
-demonstracao(16)
