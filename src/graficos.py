@@ -248,6 +248,6 @@ def gerar_graficos_por_tamanho(arquivo_mediana: str | None = "mediana",
     curvas = varrer_tamanhos(TAMANHOS, repeticoes=repeticoes)
     plotar_erro_por_tamanho(curvas, TAMANHOS, "mediana", arquivo_mediana)
     plotar_erro_por_tamanho(curvas, TAMANHOS, "media", arquivo_media)
-    gerar_violino("violino", )
+    gerar_violino("violino")
     plotar_escala(varrer_escala(), DECADAS, "escala.png")
     print(f"Concluído!!!")

@@ -42,7 +42,7 @@ def gerar_dados(linhas: int, colunas: int, esparsidade: float, semente: int):
     rng = random.Random(semente)               # gerador próprio: não mexe no random global
 
     def valor():
-        return rng.uniform(0.0, 1.0)
+        return rng.uniform(-1.0, 1.0)
 
     A = [[0.0 if rng.random() < esparsidade else valor() for _ in range(colunas)]
          for _ in range(linhas)]
