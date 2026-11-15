@@ -14,7 +14,7 @@ SEMENTE = 42
 LARGURAS = (8, 16, 32)
 
 DECADAS = range(5)          # k = 0..4  ->  [1, 10], ..., [10^4, 10^5]
-TAMANHO = 100               # matriz quadrada fixa
+TAMANHO_ESCALAR = 100               # matriz quadrada fixa
 
 def plotar_grafico(resultados: dict, descricao: str = "", arquivo: str | None = None) -> None:
     import matplotlib
@@ -196,7 +196,7 @@ def escalar_dados(A: list, x: list, k: int):
     return A_k, [abs(v) for v in x]
 
 
-def varrer_escala(decadas=DECADAS, tamanho: int = TAMANHO,
+def varrer_escala(decadas=DECADAS, tamanho: int = TAMANHO_ESCALAR,
                   esparsidade: float = ESPARSIDADE, semente: int = SEMENTE) -> dict:
     """curvas[formato] = lista com a mediana do erro relativo em cada década."""
     A0, x0 = gerar_dados(tamanho, tamanho, esparsidade, semente)   # mesma base em todas as décadas
