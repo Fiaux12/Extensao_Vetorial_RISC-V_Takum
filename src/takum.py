@@ -46,7 +46,6 @@ def takum_para_binario(bits: int, n: int) -> str:
 
 
 def bits_fracao_padrao(n: int) -> int:
-    """Bits fracionários da representação interna: n - 5 (mínimo 0)."""
     return max(n - 5, 0)
 
 

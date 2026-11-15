@@ -1,16 +1,9 @@
-"""
-instrucoes.py
-Executores das instruções. Todos têm a assinatura  exec_x(m, c)  em que
-m é a Maquina e c é o dicionário de campos devolvido por identificar().
-Devolvem True se alteraram o PC (desvios); caso contrário, o PC avança +4.
-"""
 from estruturas import Maquina, VLEN
 from codificacao import InstrucaoIlegal
 from calculos import ula, Op, takum_estreitar, takum_dot
 
 
 def _verificar_pre_condicoes(m: Maquina, sew_exigido: int | None = None) -> None:
-    """Levanta InstrucaoIlegal se vill = 1 ou se o SEW não for permitido."""
     if m.vill:
         raise InstrucaoIlegal("vill = 1: execute vsetvli antes")
     if m.sew not in (8, 16, 32):
@@ -122,7 +115,7 @@ def exec_vtmul(m: Maquina, c: dict):
 def _exec_vtdot(m: Maquina, c: dict, n: int):
     _verificar_pre_condicoes(m, sew_exigido=32)
     if m.vl == 0:
-        return False                                   # nada a calcular
+        return False                                   
     k = 32 // n
     a = [m.ler_elemento(c["vs2"], i, sew=n) for i in range(m.vl * k)]
     b = [m.ler_elemento(c["vs1"], i, sew=n) for i in range(m.vl * k)]

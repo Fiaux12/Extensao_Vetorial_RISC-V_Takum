@@ -1,5 +1,4 @@
 """
-calculos.py  (Fase 1, item 2) -- ULA Takum
 Operações escalares sobre UM elemento, para n = 8, 16 ou 32.
 As instruções vetoriais chamam estas funções uma vez por lane ativa.
 

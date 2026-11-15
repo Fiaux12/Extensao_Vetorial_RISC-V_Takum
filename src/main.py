@@ -1,8 +1,5 @@
 """
-main.py
 Ciclo buscar -> decodificar -> executar e demonstração.
-
-Executar:  python main.py
 """
 from estruturas import Maquina
 from codificacao import identificar, codificar
@@ -35,10 +32,6 @@ def main() -> None:
     print(f"vtmul.vv v1, v2, v3 = 0x{palavra:08X}")
     nome, campos = identificar(palavra)
     print(nome, campos)
-
-    # Quando as instruções estiverem implementadas:
-    # m.carregar_programa([...palavras...])
-    # executar(m)
 
 if __name__ == "__main__":
     main()

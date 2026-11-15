@@ -1,5 +1,4 @@
 """
-estruturas.py
 Estado da máquina simulada: registradores, memória, PC, programa e CSRs vetoriais.
 
 Registradores e memória guardam apenas bits.
@@ -49,13 +48,16 @@ class Maquina:
         """Número máximo de elementos (lanes) com o SEW atual."""
         return (VLEN // self.sew) * self.lmul
 
+
     # --- Registradores escalares -------------------------------------------
     def ler_escalar(self, i: int) -> int:
         return self.regs_escalares[i]
 
+
     def escrever_escalar(self, i: int, valor: int) -> None:
         if i != 0:                          # x0 é fixo em zero
             self.regs_escalares[i] = valor & MASCARA_XLEN
+
 
     # --- Registradores vetoriais (elementos / lanes) -----------------------
     def ler_elemento(self, reg: int, i: int, sew: int | None = None) -> int:
@@ -66,6 +68,7 @@ class Maquina:
         if ini + n > len(self.regs_vetoriais[reg]):
             raise IndexError(f"elemento {i} fora do registrador v{reg} (SEW={sew})")
         return int.from_bytes(self.regs_vetoriais[reg][ini:ini + n], "little")
+
 
     def escrever_elemento(self, reg: int, i: int, valor: int, sew: int | None = None) -> None:
         sew = sew or self.sew
@@ -81,15 +84,18 @@ class Maquina:
             raise IndexError(f"acesso fora da memória: 0x{endereco:x}")
         return bytes(self.memoria[endereco:endereco + n_bytes])
 
+
     def escrever_memoria(self, endereco: int, dados: bytes) -> None:
         if endereco < 0 or endereco + len(dados) > len(self.memoria):
             raise IndexError(f"acesso fora da memória: 0x{endereco:x}")
         self.memoria[endereco:endereco + len(dados)] = dados
 
+
     # --- Programa ----------------------------------------------------------
     def carregar_programa(self, palavras: list) -> None:
         self.programa = list(palavras)
         self.pc = 0
+
 
     def buscar_instrucao(self) -> int:
         """Etapa BUSCAR: devolve a palavra de 32 bits apontada pelo PC."""
@@ -97,6 +103,7 @@ class Maquina:
         if self.pc % 4 != 0 or not (0 <= idx < len(self.programa)):
             raise IndexError(f"PC inválido: 0x{self.pc:x}")
         return self.programa[idx]
+
 
     def fim_do_programa(self) -> bool:
         return self.pc // 4 >= len(self.programa)

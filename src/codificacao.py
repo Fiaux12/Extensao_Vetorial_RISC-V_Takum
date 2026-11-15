@@ -1,5 +1,4 @@
 """
-codificacao.py
 Palavra de 32 bits <-> campos da instrução (montador e decodificador de controle).
 
 Formato OP-V do RVV, usado pela Zvtakum no espaço custom-1:
@@ -7,18 +6,17 @@ Formato OP-V do RVV, usado pela Zvtakum no espaço custom-1:
 """
 
 # --- Opcodes ----------------------------------------------------------------
-OPCODE_CUSTOM1 = 0b0101011      # Zvtakum (proposta)
+OPCODE_CUSTOM1 = 0b0101011      
 FUNCT3_VV = 0b001
 
 # Instruções padrão que o simulador também precisa reconhecer
-# (conferir na especificação, capítulo 30):
 OPCODE_OPV = 0b1010111          # vsetvli (funct3 = 111)
 OPCODE_LOAD_FP = 0b0000111      # vle8/16/32.v
 OPCODE_STORE_FP = 0b0100111     # vse8/16/32.v
 OPCODE_OP_IMM = 0b0010011       # addi
 OPCODE_BRANCH = 0b1100011       # bne
 
-# --- funct6 das instruções Zvtakum (propostas; confirmar com o grupo) --------
+# --- funct6 das instruções Zvtakum  --------
 FUNCT6_VT = {
     "vtadd.vv":   0b000000,
     "vtsub.vv":   0b000010,
