@@ -9,7 +9,7 @@ from experimennto import gerar_dados, executar_takum, calcular_padrao, calcular_
 TAMANHOS = list(range(10, 101, 10))       # matrizes quadradas 10x10, 20x20, ..., 100x100
 LINHAS = 16
 COLUNAS = 32
-ESPARSIDADE = 0.7           # fração de zeros em A
+ESPARSIDADE = 0.5           # fração de zeros em A
 SEMENTE = 42
 LARGURAS = (8, 16, 32)
 

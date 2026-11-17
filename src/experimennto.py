@@ -22,7 +22,7 @@ from graficos import gerar_graficos_por_tamanho
 # --- Parâmetros do experimento ----------------------------------------------
 LINHAS = 16
 COLUNAS = 32
-ESPARSIDADE = 0.7           # fração de zeros em A
+ESPARSIDADE = 0.5           # fração de zeros em A
 SEMENTE = 42
 LARGURAS = (8, 16, 32)      # T8/T16/T32 e FP8/FP16/FP32
 
