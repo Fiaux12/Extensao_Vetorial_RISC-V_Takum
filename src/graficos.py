@@ -4,7 +4,7 @@ import sys
 from decimal import Decimal, localcontext
 import numpy as np
 
-from experimennto import gerar_dados, executar_takum, calcular_padrao, calcular_referencia, erro_relativo
+from experimento import gerar_dados, executar_takum, calcular_padrao, calcular_referencia, erro_relativo
 
 TAMANHOS = list(range(10, 101, 10))       # matrizes quadradas 10x10, 20x20, ..., 100x100
 LINHAS = 16

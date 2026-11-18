@@ -25,7 +25,7 @@ pip install numpy matplotlib
 | `main.py` | Ciclo buscar → decodificar → executar |
 | `testes_manuais.py` | Testes feitos para análise visual |
 | `testes_automaticos.py` | Os mesmos testes de testes_manuais, porém com asserts (`unittest`) |
-| `experimennto.py` | Experimento `y = A · x` (Takum × IEEE) |
+| `experimento.py` | Experimento `y = A · x` (Takum × IEEE) |
 | `graficos.py` | Gráficos por tamanho de matriz e violin plot |
 
 
@@ -69,7 +69,7 @@ contra uma referência em `Decimal` com 34 dígitos.
 ### Executando
 
 ```bash
-python experimennto.py
+python experimento.py
 ```
 
 Na configuração atual, demonstracao executa a multiplicação de uma matriz 6x6 por um vetor e mostra como é feita a separação por lane, como esses dados são armazenados na memoria e o resultado da operação. A demonstração também calcula o erro e faz uma comparação entre os formatos Takum e IEEE.
